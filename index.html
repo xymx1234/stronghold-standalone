@@ -33804,7 +33804,7 @@ var Battle = class {
       return;
     }
     const poolHolds = !!this.sharedBoss && (this.kind === "boss" || this.kind === "hidden");
-    if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && this._everSpawned && !this.enemies.some((e3) => e3.alive && !e3.removed) && !this._pending.some((p3) => p3.time <= this.time + 1e-9)) {
+    if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && this._everSpawned && !this._pending.length && !this.enemies.some((e3) => e3.alive && !e3.removed)) {
       if (!this._shortenedClear) {
         this._shortenedClear = true;
         const left = this.timeLimit - this.time;
@@ -33812,18 +33812,13 @@ var Battle = class {
       }
       try {
         const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
-        _b.waitReason = "cleared-in-5s pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
+        _b.waitReason = "round-cleared-in-5s t=" + Math.round(this.time) + "/" + Math.round(this.timeLimit) + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
       } catch {
       }
-    } else if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && this._everSpawned && !this._pending.length && !this._hasPendingEnemySchedules()) {
-      if (!this._shortenedClear) {
-        this._shortenedClear = true;
-        const left = this.timeLimit - this.time;
-        if (left > 5) this.timeLimit = this.time + 5;
-      }
+    } else if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started) {
       try {
         const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
-        _b.waitReason = "end-batch clear-in-5s alive=" + this.enemies.filter((e3) => e3.alive && !e3.removed).map((e3) => e3.defId).slice(0, 5).join(",") + " pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
+        _b.waitReason = "alive t=" + Math.round(this.time) + "/" + Math.round(this.timeLimit) + " alive=" + this.enemies.filter((e3) => e3.alive && !e3.removed).map((e3) => e3.defId).slice(0, 5).join(",") + " pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
       } catch {
       }
     } else if (this.autoFinish && !poolHolds && this.started) {
@@ -104600,7 +104595,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v51 ${(() => {
+        `ver: v52 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
