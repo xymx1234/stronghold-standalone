@@ -33386,6 +33386,7 @@ var Battle = class {
     this.recordEvents = opts.recordEvents !== false;
     this.autoFinish = opts.autoFinish !== false;
     this._shortenedClear = false;
+    this._everSpawned = false;
     this.data = toDataSource(opts.data);
     let stage = opts.stage ?? (opts.stageId ? this.data.getStage(opts.stageId) : null);
     if (stage && !stage._norm) stage = normalizeStage(stage.id ?? opts.stageId, stage);
@@ -33803,11 +33804,19 @@ var Battle = class {
       return;
     }
     const poolHolds = !!this.sharedBoss && (this.kind === "boss" || this.kind === "hidden");
-    if (this.autoFinish && !poolHolds && !this._pending.length && !this.enemies.some((e3) => e3.alive && !e3.removed) && this.started) {
-      if (!this._hasPendingEnemySchedules()) {
-        this._finish("cleared");
-        return;
+    if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && this._everSpawned && !this.enemies.some((e3) => e3.alive && !e3.removed) && !this._pending.some((p3) => p3.time <= this.time + 1e-9)) {
+      if (!this._shortenedClear) {
+        this._shortenedClear = true;
+        this._cancelRemainingSpawns();
+        const left = this.timeLimit - this.time;
+        if (left > 5) this.timeLimit = this.time + 5;
       }
+      try {
+        const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
+        _b.waitReason = "cleared-in-5s sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
+      } catch {
+      }
+    } else if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && this._everSpawned && !this._pending.length && !this._hasPendingEnemySchedules()) {
       if (!this._shortenedClear) {
         this._shortenedClear = true;
         const left = this.timeLimit - this.time;
@@ -33815,13 +33824,7 @@ var Battle = class {
       }
       try {
         const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
-        _b.waitReason = "pending-sched " + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
-      } catch {
-      }
-    } else if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && !this._hasPendingEnemySchedules()) {
-      try {
-        const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
-        _b.waitReason = "end-batch alive=" + this.enemies.filter((e3) => e3.alive && !e3.removed).map((e3) => e3.defId).slice(0, 5).join(",") + " pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
+        _b.waitReason = "end-batch clear-in-5s alive=" + this.enemies.filter((e3) => e3.alive && !e3.removed).map((e3) => e3.defId).slice(0, 5).join(",") + " pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
       } catch {
       }
     } else if (this.autoFinish && !poolHolds && this.started) {
@@ -33843,6 +33846,19 @@ var Battle = class {
   _hasPendingEnemySchedules() {
     for (const s3 of this._sched) if (!s3.cancelled && s3.holdsBattle) return true;
     return false;
+  }
+  /** 打完当前波次后的快速结算：取消所有未触发的出怪调度，并清空待出场队列，
+   *  已预计数（total++）的怪扣回 total，使 killed/total 统计闭合，避免 5s 收尾窗口内新怪进场被误判漏。 */
+  _cancelRemainingSpawns() {
+    for (const s3 of this._sched) s3.cancelled = true;
+    for (const p3 of this._pending) {
+      if (p3.precounted) {
+        this.total--;
+        const pp = this._pp(p3.ownerPlayerId ?? this._ownerForTile(p3.pos ?? this._routeFor(p3.routeIndex, p3.route)?.start));
+        if (pp) pp.total--;
+      }
+    }
+    this._pending = [];
   }
   _timeout() {
     const noMoreSpawn = !this._hasPendingEnemySchedules();
@@ -34144,6 +34160,7 @@ var Battle = class {
    * sourcePlayerId, ownerPlayerId, bounty:{coins,ownerPlayerId}, countInTotal }
    */
   spawnEnemy(enemyKey, opts = {}) {
+    this._everSpawned = true;
     if (this.enemies.length >= MAX_ALIVE_ENEMIES && this.aliveEnemies().length >= MAX_ALIVE_ENEMIES) {
       this._handlerError("spawnEnemy", null, new Error(`more than ${MAX_ALIVE_ENEMIES} living enemies; spawn of ${enemyKey} refused`));
       return null;
@@ -104589,7 +104606,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v48 ${(() => {
+        `ver: v50 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
