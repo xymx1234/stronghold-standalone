@@ -38348,7 +38348,7 @@ var PlayerState = class {
   /** 召唤物部署范围校验：目标格必须在召唤者（干员）攻击范围内（rangeGrid 相对偏移按朝向旋转）。无范围数据则放行。 */
   _tokenInOwnerRange(owner, r5, c3) {
     const rec = this.gd.chess(owner.id);
-    const grid2 = attackRangeGrid(rec);
+    const grid2 = Array.isArray(rec?.rangeGrid) ? rec.rangeGrid : null;
     if (!grid2 || !grid2.length) return true;
     let or = null, oc = null;
     for (const [k3, p3] of this.board) {
@@ -104553,7 +104553,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v55 ${(() => {
+        `ver: v54 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
