@@ -25795,7 +25795,7 @@ var kitPrisoner = (freeAll = false) => (ab) => [prisoner(ab, { freeAll })];
 var kitDeathSpawn = (extra = []) => (ab) => [deathSpawn(ab.tS["DeadSpawn.enemy_key"], T(ab, "DeadSpawn.cnt") ?? 0), ...extra];
 var kitStun3 = (ab) => [nthAttackStatus(nthOf(ab.sk.stuncombat), "stun", ab.sk.stuncombat && ab.sk.stuncombat.bb.stun || 0, true)];
 var kitSelfFear = (ab) => [selfFear(ab)];
-var kitEmber = (ab) => [husk({ hits: T(ab, "Revive[Trigger].prop_max_hp"), delay: T(ab, "Revive[Trigger].interval") })];
+var kitEmber = (ab) => [husk({ hits: T(ab, "Revive[Trigger].prop_max_hp"), delay: T(ab, "Revive[Trigger].interval"), stealthy: false })];
 var kitPolluted = (ab) => [{
   death(c3, b3, e3) {
     if (c3.reason !== "killed") return;
@@ -44296,7 +44296,8 @@ var Match = class {
       return;
     }
     const doneAt = f3.startAt + Math.round((f3.endGt || 0) / this.gameSpeed * 1e3);
-    const wait = this.sched.instant ? 0 : Math.max(0, doneAt - this.sched.now());
+    let wait = this.sched.instant ? 0 : Math.max(0, doneAt - this.sched.now());
+    if (f3.mode === "server" && wait > 5e3) wait = 5e3;
     f3.doneTimer = this.later(wait, () => {
       f3.doneTimer = null;
       this._fieldDone(f3);
@@ -104518,7 +104519,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v43 ${(() => {
+        `ver: v44 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -107269,9 +107270,18 @@ function dismissToast(id) {
     emit();
   }, 200));
 }
+var DETAIL_TEXT = {
+  "already elite": "\u8BE5\u5E72\u5458\u5DF2\u662F\u7CBE\u82F1\uFF0C\u65E0\u6CD5\u518D\u664B\u5347",
+  "no operator in range": "\u8303\u56F4\u5185\u6CA1\u6709\u53EF\u9644\u8EAB\u5E72\u5458",
+  "no bounty available": "\u6CA1\u6709\u53EF\u7528\u7684\u60AC\u8D4F\u76EE\u6807",
+  "not equipment": "\u8BE5\u9053\u5177\u4E0D\u662F\u88C5\u5907",
+  "replace: not equipped on the target": "\u88AB\u66FF\u6362\u7684\u88C5\u5907\u4E0D\u5728\u8BE5\u5E72\u5458\u8EAB\u4E0A",
+  "effect not available": "\u8BE5\u88C5\u5907\u7684\u673A\u5236\u6682\u4E0D\u53EF\u7528"
+};
 function describeError(err) {
   if (!err) return "\u53D1\u751F\u672A\u77E5\u9519\u8BEF";
   if (typeof err === "string") return ERR_TEXT[err] || err;
+  if (typeof err.detail === "string" && err.detail && DETAIL_TEXT[err.detail]) return DETAIL_TEXT[err.detail];
   if (err.code && ERR_TEXT[err.code]) return ERR_TEXT[err.code];
   if (typeof err.message === "string" && err.message) return err.message;
   if (typeof err.msg === "string" && err.msg) return err.msg;
