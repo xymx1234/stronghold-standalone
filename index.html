@@ -33818,6 +33818,12 @@ var Battle = class {
         _b.waitReason = "pending-sched " + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
       } catch {
       }
+    } else if (this.autoFinish && !poolHolds && this.kind !== "unite" && this.started && !this._hasPendingEnemySchedules()) {
+      try {
+        const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
+        _b.waitReason = "end-batch alive=" + this.enemies.filter((e3) => e3.alive && !e3.removed).map((e3) => e3.defId).slice(0, 5).join(",") + " pending=" + this._pending.length + " sched=" + this._sched.filter((s3) => !s3.cancelled && s3.holdsBattle).length;
+      } catch {
+      }
     } else if (this.autoFinish && !poolHolds && this.started) {
       try {
         const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
@@ -33839,6 +33845,19 @@ var Battle = class {
     return false;
   }
   _timeout() {
+    const noMoreSpawn = !this._hasPendingEnemySchedules();
+    if (noMoreSpawn && this._shortenedClear) {
+      for (const e3 of this.enemies) {
+        if (!e3.alive || e3.isBoss) continue;
+        e3.alive = false;
+        e3.removeReason = "cleared";
+        this.killed = (this.killed || 0) + 1;
+      }
+      this.unspawned = [];
+      this._pending = [];
+      this._finish("cleared");
+      return;
+    }
     for (const e3 of this.enemies) {
       if (!e3.alive || e3.isBoss) continue;
       this._recordLeak(e3, true);
@@ -38348,6 +38367,7 @@ var PlayerState = class {
     if (occ) return fail(ERR.BAD_TILE, "occupied");
     const owner = [...this.board.values()].find((p3) => p3.uid === piece.ownerUid);
     if (!owner) return fail(ERR.BAD_TARGET, "owner not deployed");
+    if (!this._tokenInOwnerRange(owner, r5, c3)) return fail(ERR.BAD_TILE, "summon must be within the summoner's attack range");
     if ((piece.count || 1) > 1) {
       piece.count -= 1;
       const one = this.newPiece("token", piece.id, { count: 1, ownerUid: piece.ownerUid, dir });
@@ -38360,6 +38380,27 @@ var PlayerState = class {
     }
     this.recompute();
     return OK;
+  }
+  /** 召唤物部署范围校验：目标格必须在召唤者（干员）攻击范围内（rangeGrid 相对偏移按朝向旋转）。无范围数据则放行。 */
+  _tokenInOwnerRange(owner, r5, c3) {
+    const rec = this.gd.chess(owner.id);
+    const grid2 = Array.isArray(rec?.rangeGrid) ? rec.rangeGrid : null;
+    if (!grid2 || !grid2.length) return true;
+    let or = null, oc = null;
+    for (const [k3, p3] of this.board) {
+      if (p3.uid === owner.uid) {
+        [or, oc] = parseKey(k3);
+        break;
+      }
+    }
+    if (or == null || oc == null) return false;
+    const d3 = pieceDir(owner);
+    for (const g4 of grid2) {
+      if (!Array.isArray(g4) || !Number.isInteger(g4[0]) || !Number.isInteger(g4[1])) continue;
+      const [ar, ac] = rotateOffset(g4[0], g4[1], d3);
+      if (or + ar === r5 && oc + ac === c3) return true;
+    }
+    return false;
   }
   _moveToHand(loc, idx) {
     const piece = loc.piece;
@@ -46504,6 +46545,20 @@ async function loadSpineData(entry) {
     fetch(u3),
     new Promise((_3, rej) => setTimeout(() => rej(new Error("fetch-timeout:" + String(u3).slice(0, 60))), 8e3))
   ]);
+  const gunzip = async (buf) => {
+    const g4 = globalThis.BrotliDecode;
+    if (g4) {
+      try {
+        return g4(new Uint8Array(buf)).buffer;
+      } catch {
+      }
+    }
+    try {
+      return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("brotli"))).arrayBuffer();
+    } catch {
+      throw new Error("brotli-decode-unavailable");
+    }
+  };
   try {
     _diag("start:" + String(entry.skel).slice(-34));
     const skelRes = await fetchT(entry.skel);
@@ -46512,7 +46567,10 @@ async function loadSpineData(entry) {
     const atlasRes = await fetchT(entry.atlas);
     if (!atlasRes.ok) throw new Error("atlas HTTP " + atlasRes.status);
     _diag("atlas:" + atlasRes.status);
-    const [skelBuf, atlasText] = await Promise.all([skelRes.arrayBuffer(), atlasRes.text()]);
+    let skelBuf = await skelRes.arrayBuffer();
+    if (String(entry.skel).endsWith(".br")) skelBuf = await gunzip(skelBuf);
+    let atlasText = await atlasRes.text();
+    if (String(entry.atlas).endsWith(".br")) atlasText = new TextDecoder().decode(await gunzip(new TextEncoder().encode(atlasText)));
     _diag("bytes:" + skelBuf.byteLength);
     let atlas = null;
     await new Promise((resolve2) => {
@@ -104531,7 +104589,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v47 ${(() => {
+        `ver: v48 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -109959,12 +110017,44 @@ function canPlace2(ctx, uid, target2) {
       if (occ) return no("BAD_TILE", "\u8BE5\u4F4D\u7F6E\u5DF2\u6709\u5355\u4F4D");
       const ownerDeployed = [...ctx.boardAt.values()].some((e3) => e3.piece.uid === piece.ownerUid);
       if (Number.isInteger(piece.ownerUid) && !ownerDeployed) return no("BAD_TARGET", "\u53EC\u5524\u8005\u5C1A\u672A\u90E8\u7F72");
+      if (Number.isInteger(piece.ownerUid)) {
+        const owner = [...ctx.boardAt.values()].find((e3) => e3.piece.uid === piece.ownerUid);
+        if (owner && !tokenInOwnerRange(ctx, owner, row, col)) return no("OUT_OF_RANGE", "\u53EC\u5524\u7269\u53EA\u80FD\u90E8\u7F72\u5728\u53EC\u5524\u8005\u653B\u51FB\u8303\u56F4\u5185");
+      }
       return { ok: true, action: "move" };
     }
     if ((!occ || occ.piece.kind !== "chess") && ctx.count >= ctx.cap) return no("BOARD_FULL", "\u5DF2\u8FBE\u5230\u90E8\u7F72\u4E0A\u9650");
     return { ok: true, action: occ ? "swap" : "move" };
   }
   return no("BAD_TILE", "\u65E0\u6CD5\u653E\u7F6E\u5728\u8BE5\u4F4D\u7F6E");
+}
+var rotOffset = (dr, dc, d3) => {
+  switch (d3 === "UP" ? "UP" : d3 === "LEFT" ? "LEFT" : d3 === "DOWN" ? "DOWN" : "RIGHT") {
+    case "UP":
+      return [dc, -dr];
+    case "LEFT":
+      return [-dr, -dc];
+    case "DOWN":
+      return [-dc, dr];
+    default:
+      return [dr, dc];
+  }
+};
+function tokenInOwnerRange(ctx, owner, row, col) {
+  if (!isObj8(owner) || !Number.isInteger(owner.row) || !Number.isInteger(owner.col)) return true;
+  let rec = ctx.getChess?.(owner.piece.id);
+  if (rec && isObj8(rec)) {
+    let grid2 = attackRangeGrid(rec);
+    if (!grid2 || !grid2.length) return true;
+    const d3 = owner.piece.dir;
+    for (const g4 of grid2) {
+      if (!Array.isArray(g4) || !Number.isInteger(g4[0]) || !Number.isInteger(g4[1])) continue;
+      const [ar, ac] = rotOffset(g4[0], g4[1], d3);
+      if (owner.row + ar === row && owner.col + ac === col) return true;
+    }
+    return false;
+  }
+  return true;
 }
 function equipCheck(ctx, itemPiece, targetPiece) {
   const item = ctx.getItem(itemPiece.id);
