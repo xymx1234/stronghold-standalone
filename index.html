@@ -104495,7 +104495,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v40 ${(() => {
+        `ver: v41 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -104751,6 +104751,7 @@ var PlayerConnSocket = class {
       this._peer = peer;
       const conn = peer.connect("sp-" + room, { reliable: true });
       this._conn = conn;
+      if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set("self", conn);
       const fail4 = (code, reason) => {
         if (this._done) return;
         this._done = true;
@@ -104772,8 +104773,18 @@ var PlayerConnSocket = class {
         }
       });
       conn.on("data", (d3) => {
-        if (!this._done) try {
-          this.onmessage && this.onmessage({ data: String(d3) });
+        if (this._done) return;
+        const raw = String(d3);
+        try {
+          const j3 = JSON.parse(raw);
+          if (j3 && j3.spChat) {
+            if (g2.__SP_CHAT) g2.__SP_CHAT.incoming({ from: j3.from, text: j3.text, ts: j3.ts, me: false });
+            return;
+          }
+        } catch {
+        }
+        try {
+          this.onmessage && this.onmessage({ data: raw });
         } catch {
         }
       });
@@ -104860,7 +104871,25 @@ function adaptPeerServerConn(conn) {
     }
   };
   conn.on("data", (d3) => {
-    if (open) sock.emit("message", String(d3), false);
+    const raw = String(d3);
+    try {
+      const j3 = JSON.parse(raw);
+      if (j3 && j3.spChat) {
+        if (g2.__SP_CHAT) g2.__SP_CHAT.incoming({ from: j3.from, text: j3.text, ts: j3.ts, me: false });
+        const peers = g2.__SP_CHAT && g2.__SP_CHAT.peers;
+        if (peers) for (const c3 of peers.values()) {
+          if (c3 !== conn) {
+            try {
+              c3.send(raw);
+            } catch {
+            }
+          }
+        }
+        return;
+      }
+    } catch {
+    }
+    if (open) sock.emit("message", raw, false);
   });
   conn.on("close", () => {
     if (open) sock.close(1e3, "closed");
@@ -104875,6 +104904,7 @@ function setupPeerHost(code) {
   const peer = new Peer("sp-" + code);
   g2.__SP_PEER_HOST = peer;
   peer.on("connection", (conn) => {
+    if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set(String(conn.peer || Math.random()), conn);
     try {
       const s3 = adaptPeerServerConn(conn);
       g2.__SP_NETWORK.handleConnection(s3, fakeReq());
@@ -104942,6 +104972,138 @@ function showPeerShare(code) {
     bar2.appendChild(btn);
     doc.body.appendChild(bar2);
   } catch {
+  }
+}
+try {
+  const _doc0 = typeof document !== "undefined" ? document : null;
+  if (_doc0 && _doc0.head) {
+    const _st = _doc0.createElement("style");
+    _st.textContent = ".bond.is-disabled .bond__icon{filter:brightness(0) invert(.96)!important;opacity:.92!important;}.bond__icon{image-rendering:-webkit-optimize-contrast;}";
+    _doc0.head.appendChild(_st);
+  }
+} catch {
+}
+var SP_CHAT = {
+  history: [],
+  peers: /* @__PURE__ */ new Map(),
+  self: "\u535A\u58EB" + Math.floor(10 + Math.random() * 89),
+  incoming(msg) {
+    this.history.push(msg);
+    if (this.onMsg) this.onMsg(msg);
+  },
+  send(text) {
+    const t4 = String(text || "").trim();
+    if (!t4) return;
+    const msg = { spChat: true, from: this.self, text: t4, ts: Date.now() };
+    this.history.push(msg);
+    if (this.onMsg) this.onMsg(msg);
+    const payload2 = JSON.stringify(msg);
+    for (const c3 of this.peers.values()) {
+      try {
+        c3.send(payload2);
+      } catch {
+      }
+    }
+  }
+};
+g2.__SP_CHAT = SP_CHAT;
+function setupChatUI() {
+  try {
+    const doc = typeof document !== "undefined" ? document : null;
+    if (!doc || !doc.body || doc.getElementById("sp-chat-btn")) return;
+    const btn = doc.createElement("button");
+    btn.id = "sp-chat-btn";
+    btn.textContent = "\u804A";
+    Object.assign(btn.style, {
+      position: "fixed",
+      right: "10px",
+      bottom: "150px",
+      zIndex: 99991,
+      width: "46px",
+      height: "46px",
+      borderRadius: "50%",
+      cursor: "pointer",
+      background: "#14362a",
+      color: "#b9f2da",
+      border: "1px solid #3f8a6c",
+      fontSize: "15px",
+      fontFamily: "sans-serif",
+      boxShadow: "0 2px 8px rgba(0,0,0,.5)"
+    });
+    const panel = doc.createElement("div");
+    panel.id = "sp-chat-panel";
+    Object.assign(panel.style, {
+      position: "fixed",
+      right: "8px",
+      bottom: "204px",
+      width: "280px",
+      zIndex: 99992,
+      display: "none",
+      flexDirection: "column",
+      background: "rgba(8, 16, 14, .97)",
+      border: "1px solid #2a6a52",
+      borderRadius: "10px",
+      fontFamily: "sans-serif",
+      overflow: "hidden"
+    });
+    const list2 = doc.createElement("div");
+    Object.assign(list2.style, { overflowY: "auto", padding: "8px", fontSize: "13px", maxHeight: "200px", minHeight: "110px" });
+    const row = doc.createElement("div");
+    Object.assign(row.style, { display: "flex", borderTop: "1px solid #1e3a30", padding: "6px" });
+    const input = doc.createElement("input");
+    Object.assign(input.style, {
+      flex: "1",
+      background: "#0c1c16",
+      color: "#d9f7ec",
+      border: "1px solid #2a6a52",
+      borderRadius: "6px",
+      padding: "6px 8px",
+      fontSize: "13px",
+      outline: "none"
+    });
+    input.placeholder = "\u8F93\u5165\u6D88\u606F\u2026";
+    const sendBtn = doc.createElement("button");
+    sendBtn.textContent = "\u53D1\u9001";
+    Object.assign(sendBtn.style, {
+      marginLeft: "6px",
+      padding: "4px 10px",
+      borderRadius: "6px",
+      background: "#1e4a3c",
+      color: "#d9f7ec",
+      border: "1px solid #3f8a6c",
+      fontSize: "13px",
+      cursor: "pointer"
+    });
+    row.appendChild(input);
+    row.appendChild(sendBtn);
+    panel.appendChild(list2);
+    panel.appendChild(row);
+    doc.body.appendChild(btn);
+    doc.body.appendChild(panel);
+    const addMsg = (msg) => {
+      const el = doc.createElement("div");
+      el.style.cssText = "margin:2px 0;line-height:1.4;color:#cfe9dd;word-break:break-word;font-size:13px;";
+      el.textContent = (msg.me ? "\u6211" : msg.from || "\u961F\u53CB") + "\uFF1A" + msg.text;
+      list2.appendChild(el);
+      list2.scrollTop = list2.scrollHeight;
+    };
+    SP_CHAT.onMsg = (msg) => addMsg(msg);
+    const toggle = () => {
+      panel.style.display = panel.style.display === "flex" ? "none" : "flex";
+    };
+    btn.onclick = toggle;
+    const sendNow = () => {
+      const v3 = input.value.trim();
+      if (!v3) return;
+      SP_CHAT.send(v3);
+      input.value = "";
+    };
+    sendBtn.onclick = sendNow;
+    input.addEventListener("keydown", (e3) => {
+      if (e3.key === "Enter") sendNow();
+    });
+  } catch (e3) {
+    console.warn("[sp-chat] ui", e3);
   }
 }
 if (SP_JOIN) {
@@ -105018,6 +105180,12 @@ if (SP_JOIN) {
 } else {
   g2.__SP_STANDALONE = { ready: false, online: true };
   console.info("[standalone] online mode \u2014 connecting to ws://" + (typeof location !== "undefined" ? location.host : "?") + "/ws");
+}
+if (SP_JOIN || SP_HOST) {
+  try {
+    setupChatUI();
+  } catch {
+  }
 }
 
 // ../Stronghold-Protocol/public/js/ui/compat.js
