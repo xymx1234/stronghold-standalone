@@ -48332,7 +48332,7 @@ var MAT_DRAW = {
   }
 };
 function roadBase(ctx, x2, y3, s3, r5, variant, plain) {
-  bevelTile(ctx, x2, y3, s3, plain ? { light: "#838b90", dark: "#727a7f", seamColor: "#3a4246" } : { light: "#949ca1", dark: "#80888d", seamColor: "#3d4549" });
+  bevelTile(ctx, x2, y3, s3, plain ? { light: "#e3d9c0", dark: "#d0c4a7", seamColor: "#9a8d6e" } : { light: "#e8dfc8", dark: "#d4c8aa", seamColor: "#a39677" });
   speckle(ctx, x2 + 4, y3 + 4, s3 - 8, s3 - 8, r5, 380, ["rgba(255,255,255,0.09)", "rgba(0,0,0,0.09)", "rgba(20,30,35,0.06)"]);
   if (variant % 2 === 0) cracks(ctx, x2, y3, s3, r5, 2, "rgba(30,38,42,0.25)");
   if (variant === 3) {
@@ -48344,10 +48344,10 @@ function roadBase(ctx, x2, y3, s3, r5, variant, plain) {
   }
 }
 function floorBase(ctx, x2, y3, s3, r5) {
-  bevelTile(ctx, x2, y3, s3, { light: "#5f676b", dark: "#51585c", seamColor: "#2b3134", hi: "rgba(255,255,255,0.12)" });
-  ctx.fillStyle = "rgba(0,0,0,0.16)";
+  bevelTile(ctx, x2, y3, s3, { light: "#dcd2b8", dark: "#c8bda0", seamColor: "#8d8061", hi: "rgba(255,255,255,0.18)", lo: "rgba(90,78,50,0.30)" });
+  ctx.fillStyle = "rgba(0,0,0,0.14)";
   for (let i3 = 0; i3 < 7; i3++) for (let j3 = 0; j3 < 7; j3++) ctx.fillRect(x2 + 12 + i3 * 15.5, y3 + 12 + j3 * 15.5, 3, 3);
-  speckle(ctx, x2 + 4, y3 + 4, s3 - 8, s3 - 8, r5, 180, ["rgba(255,255,255,0.05)", "rgba(0,0,0,0.08)"]);
+  speckle(ctx, x2 + 4, y3 + 4, s3 - 8, s3 - 8, r5, 180, ["rgba(255,255,255,0.06)", "rgba(60,50,30,0.07)"]);
 }
 function forbidBase(ctx, x2, y3, s3, r5, alt2) {
   ctx.fillStyle = "#20262a";
