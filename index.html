@@ -104553,7 +104553,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v54 ${(() => {
+        `ver: v55 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -105001,6 +105001,41 @@ function adaptPeerServerConn(conn) {
 }
 function setupPeerHost(code) {
   if (g2.__SP_PEER_HOST || typeof globalThis.Peer !== "function") return;
+  let registeringBar = null;
+  const showRegistering = () => {
+    try {
+      const doc = typeof document !== "undefined" ? document : null;
+      if (!doc || !doc.body || registeringBar || g2.__SP_PEER_FAILED_BAR || g2.__SP_PEER_SHARE_BAR) return;
+      registeringBar = doc.createElement("div");
+      registeringBar.textContent = '\u6B63\u5728\u6CE8\u518C\u8054\u673A\u623F\u95F4\u2026\uFF08\u51E0\u79D2\u5185\u5B8C\u6210\uFF09\uFF0C\u770B\u5230"\u8054\u673A\u5DF2\u5F00\u542F"\u63D0\u793A\u540E\u518D\u5206\u4EAB\u5BC6\u94A5';
+      Object.assign(registeringBar.style, {
+        position: "fixed",
+        left: "8px",
+        right: "8px",
+        bottom: "72px",
+        zIndex: 99989,
+        background: "rgba(24, 28, 34, .95)",
+        color: "#c3cad2",
+        border: "1px solid #4a5460",
+        padding: "10px 12px",
+        fontSize: "13px",
+        lineHeight: "1.5",
+        borderRadius: "10px",
+        fontFamily: "sans-serif",
+        wordBreak: "break-all"
+      });
+      doc.body.appendChild(registeringBar);
+    } catch {
+    }
+  };
+  const hideRegistering = () => {
+    try {
+      if (registeringBar && registeringBar.parentNode) registeringBar.parentNode.removeChild(registeringBar);
+    } catch {
+    }
+    registeringBar = null;
+  };
+  showRegistering();
   const attempt = (tryNo) => {
     if (g2.__SP_PEER_HOST) return;
     const peer = new Peer("sp-" + code, { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 0 });
@@ -105025,9 +105060,11 @@ function setupPeerHost(code) {
       }
     });
     peer.on("open", () => {
+      hideRegistering();
       showPeerShare(code);
     });
     peer.on("error", (e3) => {
+      hideRegistering();
       const t4 = e3 && (e3.type || "");
       console.warn("[sp-peer] host error", t4 || e3, "(try", tryNo, ")");
       cleanup();
@@ -105103,7 +105140,7 @@ function showPeerShare(code) {
     if (!doc || !doc.body) return;
     const url = (location.origin + location.pathname).replace(/\/+$/, "") + "?sp=join&room=" + code;
     const bar2 = doc.createElement("div");
-    bar2.textContent = "\u8054\u673A\u5DF2\u5F00\u542F \xB7 \u5206\u4EAB\u7ED9\u961F\u53CB\uFF1A" + url;
+    bar2.textContent = "\u8054\u673A\u5DF2\u5F00\u542F \xB7 \u5206\u4EAB\u7ED9\u961F\u53CB\uFF1A" + url + "\u3000\uFF08\u8BF7\u52FF\u5237\u65B0\u9875\u9762\uFF0C\u5237\u65B0\u540E\u5BC6\u94A5\u5931\u6548\u9700\u91CD\u65B0\u5F00\u623F\uFF09";
     Object.assign(bar2.style, {
       position: "fixed",
       left: "8px",
@@ -105312,14 +105349,65 @@ if (SP_JOIN) {
   g2.__SP_STANDALONE = { ready: false, peerJoin: SP_JOIN };
   console.info("[standalone] peer-join mode, room=" + SP_JOIN);
   {
+    let jtries = 0;
+    let lastErr = null;
+    const failBar = () => {
+      try {
+        const doc = typeof document !== "undefined" ? document : null;
+        if (!doc || !doc.body || g2.__SP_JOIN_FAIL_BAR) return;
+        g2.__SP_JOIN_FAIL_BAR = true;
+        const bar2 = doc.createElement("div");
+        bar2.textContent = '\u672A\u627E\u5230\u8BE5\u540C\u76DF\u5BC6\u94A5\u5BF9\u5E94\u7684\u623F\u95F4\u3002\u8BF7\u786E\u8BA4\uFF1A\u2460 \u623F\u4E3B\u5DF2\u70B9\u51FB"\u521B\u5EFA\u540C\u76DF"\u5E76\u770B\u5230"\u8054\u673A\u5DF2\u5F00\u542F"\u63D0\u793A\uFF1B\u2461 \u623F\u4E3B\u6CA1\u6709\u5237\u65B0\u6216\u5173\u95ED\u9875\u9762\uFF08\u5237\u65B0\u540E\u5BC6\u94A5\u4F1A\u5931\u6548\uFF0C\u9700\u91CD\u65B0\u5F00\u623F\uFF09\uFF1B\u2462 \u5BC6\u94A5\u4E3A 4 \u4F4D\u5927\u5199\u5B57\u6BCD\u3002';
+        Object.assign(bar2.style, {
+          position: "fixed",
+          left: "8px",
+          right: "8px",
+          bottom: "72px",
+          zIndex: 99992,
+          background: "rgba(60, 18, 16, .95)",
+          color: "#f5b8b2",
+          border: "1px solid #8a3a32",
+          padding: "10px 12px",
+          fontSize: "13px",
+          lineHeight: "1.5",
+          borderRadius: "10px",
+          fontFamily: "sans-serif",
+          wordBreak: "break-all",
+          whiteSpace: "pre-wrap"
+        });
+        doc.body.appendChild(bar2);
+      } catch {
+      }
+    };
+    const notFound = (e3) => {
+      const code = e3 && (e3.code || (e3.msg && typeof e3.msg === "object" ? e3.msg.code : null) || (typeof e3.msg === "string" ? e3.msg : null));
+      return /ROOM_NOT_FOUND/.test(String(code || ""));
+    };
+    try {
+      const netInst = Net.net;
+      if (netInst && typeof netInst.request === "function") {
+        const origReq = netInst.request.bind(netInst);
+        netInst.request = (t4, body, opts) => {
+          const p3 = origReq(t4, body, opts);
+          if (t4 !== "room.join") return p3;
+          return p3.catch((e3) => {
+            lastErr = e3;
+            if (notFound(e3) && jtries >= 4) failBar();
+            return void 0;
+          });
+        };
+      }
+    } catch {
+    }
     const orig = Net.prototype._onOpen;
     Net.prototype._onOpen = function(...a3) {
       const r5 = orig ? orig.apply(this, a3) : void 0;
-      let jtries = 0;
       const join2 = () => {
         if (this.status !== "online" || g2.__SP_JOINED) return;
         try {
-          this.request("room.join", { code: SP_JOIN });
+          const p3 = this.request("room.join", { code: SP_JOIN });
+          if (p3 && typeof p3.catch === "function") p3.catch(() => {
+          });
         } catch {
         }
         jtries += 1;
