@@ -33385,6 +33385,7 @@ var Battle = class {
     this.logger = opts.logger ?? console;
     this.recordEvents = opts.recordEvents !== false;
     this.autoFinish = opts.autoFinish !== false;
+    this._shortenedClear = false;
     this.data = toDataSource(opts.data);
     let stage = opts.stage ?? (opts.stageId ? this.data.getStage(opts.stageId) : null);
     if (stage && !stage._norm) stage = normalizeStage(stage.id ?? opts.stageId, stage);
@@ -33806,6 +33807,11 @@ var Battle = class {
       if (!this._hasPendingEnemySchedules()) {
         this._finish("cleared");
         return;
+      }
+      if (!this._shortenedClear) {
+        this._shortenedClear = true;
+        const left = this.timeLimit - this.time;
+        if (left > 5) this.timeLimit = this.time + 5;
       }
       try {
         const _b = globalThis.__SP_BATTLE = globalThis.__SP_BATTLE || {};
@@ -104525,7 +104531,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v46 ${(() => {
+        `ver: v47 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -104792,6 +104798,10 @@ var PlayerConnSocket = class {
         if (this._done) return;
         this._done = true;
         this.readyState = 3;
+        try {
+          this._peer && this._peer.destroy();
+        } catch {
+        }
         queueMicrotask(() => {
           try {
             this.onclose && this.onclose({ code, reason });
@@ -104819,11 +104829,11 @@ var PlayerConnSocket = class {
         };
         conn.on("open", open);
         conn.on("close", () => {
-          if (this._done || this.readyState === 1) return;
+          if (this._done) return;
           fail4(1e3, "closed");
         });
         conn.on("error", () => {
-          if (this._done || this.readyState === 1) return;
+          if (this._done) return;
           tries += 1;
           if (tries < 4) {
             try {
@@ -104996,8 +105006,38 @@ function setupPeerHost(code) {
       showPeerShare(code);
     });
     peer.on("error", (e3) => {
-      console.warn("[sp-peer] host error", e3 && e3.type || e3, "(try", tryNo, ")");
+      const t4 = e3 && (e3.type || "");
+      console.warn("[sp-peer] host error", t4 || e3, "(try", tryNo, ")");
       cleanup();
+      if (t4 === "unavailable-id") {
+        try {
+          const doc = typeof document !== "undefined" ? document : null;
+          if (doc && doc.body && !g2.__SP_PEER_FAILED_BAR) {
+            g2.__SP_PEER_FAILED_BAR = true;
+            const bar2 = doc.createElement("div");
+            bar2.textContent = "\u8BE5\u8FDE\u63A5\u7801\u5DF2\u88AB\u5360\u7528\uFF0C\u8BF7\u5237\u65B0\u9875\u9762\u6362\u4E2A 4 \u4F4D\u8FDE\u63A5\u7801\u518D\u5F00\u623F\u3002";
+            Object.assign(bar2.style, {
+              position: "fixed",
+              left: "8px",
+              right: "8px",
+              bottom: "72px",
+              zIndex: 99991,
+              background: "rgba(60, 18, 16, .95)",
+              color: "#f5b8b2",
+              border: "1px solid #8a3a32",
+              padding: "10px 12px",
+              fontSize: "13px",
+              lineHeight: "1.5",
+              borderRadius: "10px",
+              fontFamily: "sans-serif",
+              wordBreak: "break-all"
+            });
+            doc.body.appendChild(bar2);
+          }
+        } catch {
+        }
+        return;
+      }
       if (tryNo < 4) {
         try {
           setTimeout(() => attempt(tryNo + 1), 1200 * tryNo);
