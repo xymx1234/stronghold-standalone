@@ -32615,7 +32615,9 @@ K.refresh_shop_count_gain_coin_bond_char_chess = (ps) => ({
     const p3 = ps[0];
     const every = int2(p3.refresh_count, 0);
     if (every <= 0) return;
-    if (ctx.incCounter("band:chiave:refreshes", 1) % every !== 0) return;
+    const n4 = roundCounter(ctx, "band:chiave:refreshes") + 1;
+    ctx.setCounter("band:chiave:refreshes", n4);
+    if (n4 % every !== 0) return;
     if (roundCounter(ctx, "band:chiave") >= int2(p3.max_count, Infinity)) return;
     const id = rollBond(ctx, p3.bond);
     if (id && ctx.grantChess(id, { source: "band" })) bumpRound(ctx, "band:chiave");
@@ -104523,7 +104525,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v45 ${(() => {
+        `ver: v46 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
