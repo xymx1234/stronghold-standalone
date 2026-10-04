@@ -7091,6 +7091,9 @@ function getData({ dir = DATA_DIR, log: log2 = console } = {}) {
   if (!singleton) singleton = loadData(dir, { log: log2 });
   return singleton;
 }
+function setData(d3) {
+  singleton = d3 || null;
+}
 var INDEXED_FILES = Object.freeze({
   chess: "getChess",
   bonds: "getBond",
@@ -104417,6 +104420,7 @@ function deepFreeze2(root) {
   return root;
 }
 var EMBEDDED = deepFreeze2(DATA);
+setData(EMBEDDED);
 var REG = Object.freeze({
   simSpec: spec_exports,
   simData: simdata_exports,
@@ -104519,7 +104523,7 @@ setTimeout(() => {
         }
       })();
       const stats = [
-        `ver: v44 ${(() => {
+        `ver: v45 ${(() => {
           try {
             const v3 = g2.__SP_VIEW__;
             const st = v3 && v3.raw && v3.raw.__spStageInfo;
@@ -104780,11 +104784,8 @@ var PlayerConnSocket = class {
       return;
     }
     try {
-      const peer = new Peer();
+      const peer = new Peer({ host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 0 });
       this._peer = peer;
-      const conn = peer.connect("sp-" + room, { reliable: true });
-      this._conn = conn;
-      if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set("self", conn);
       const fail4 = (code, reason) => {
         if (this._done) return;
         this._done = true;
@@ -104796,33 +104797,65 @@ var PlayerConnSocket = class {
           }
         });
       };
-      peer.on("error", () => fail4(1006, "peer-signal-error"));
-      conn.on("open", () => {
-        if (this._done) return;
-        this.readyState = 1;
+      let tries = 0;
+      const tryConnect = () => {
+        if (this._done || this.readyState === 1) return;
         try {
-          this.onopen && this.onopen();
+          this._conn && this._conn.close();
         } catch {
         }
-      });
-      conn.on("data", (d3) => {
-        if (this._done) return;
-        const raw = String(d3);
-        try {
-          const j3 = JSON.parse(raw);
-          if (j3 && j3.spChat) {
-            if (g2.__SP_CHAT) g2.__SP_CHAT.incoming({ from: j3.from, text: j3.text, ts: j3.ts, me: false });
-            return;
+        const conn = peer.connect("sp-" + room, { reliable: true });
+        this._conn = conn;
+        if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set("self", conn);
+        const open = () => {
+          if (this._done) return;
+          this.readyState = 1;
+          try {
+            this.onopen && this.onopen();
+          } catch {
           }
-        } catch {
-        }
-        try {
-          this.onmessage && this.onmessage({ data: raw });
-        } catch {
-        }
+        };
+        conn.on("open", open);
+        conn.on("close", () => {
+          if (this._done || this.readyState === 1) return;
+          fail4(1e3, "closed");
+        });
+        conn.on("error", () => {
+          if (this._done || this.readyState === 1) return;
+          tries += 1;
+          if (tries < 4) {
+            try {
+              setTimeout(tryConnect, 900 * tries);
+            } catch {
+            }
+          } else fail4(1006, "peer-signal-error");
+        });
+        conn.on("data", (d3) => {
+          if (this._done) return;
+          const raw = String(d3);
+          try {
+            const j3 = JSON.parse(raw);
+            if (j3 && j3.spChat) {
+              if (g2.__SP_CHAT) g2.__SP_CHAT.incoming({ from: j3.from, text: j3.text, ts: j3.ts, me: false });
+              return;
+            }
+            if (j3 && j3.t === "room.state") {
+              try {
+                g2.__SP_JOINED = true;
+              } catch {
+              }
+            }
+          } catch {
+          }
+          try {
+            this.onmessage && this.onmessage({ data: raw });
+          } catch {
+          }
+        });
+      };
+      tryConnect();
+      peer.on("error", () => {
       });
-      conn.on("close", () => fail4(1e3, "closed"));
-      conn.on("error", () => fail4(1006, "dc-error"));
     } catch (e3) {
       this.readyState = 3;
       queueMicrotask(() => {
@@ -104934,19 +104967,71 @@ function adaptPeerServerConn(conn) {
 }
 function setupPeerHost(code) {
   if (g2.__SP_PEER_HOST || typeof globalThis.Peer !== "function") return;
-  const peer = new Peer("sp-" + code);
-  g2.__SP_PEER_HOST = peer;
-  peer.on("connection", (conn) => {
-    if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set(String(conn.peer || Math.random()), conn);
-    try {
-      const s3 = adaptPeerServerConn(conn);
-      g2.__SP_NETWORK.handleConnection(s3, fakeReq());
-    } catch (e3) {
-      console.error("[sp-peer] handleConnection", e3);
-    }
-  });
-  peer.on("error", (e3) => console.warn("[sp-peer] host error", e3 && e3.type || e3));
-  showPeerShare(code);
+  const attempt = (tryNo) => {
+    if (g2.__SP_PEER_HOST) return;
+    const peer = new Peer("sp-" + code, { host: "0.peerjs.com", port: 443, path: "/", secure: true, debug: 0 });
+    g2.__SP_PEER_HOST = peer;
+    const cleanup = () => {
+      try {
+        if (g2.__SP_PEER_HOST === peer) {
+          g2.__SP_PEER_HOST = null;
+          peer.destroy();
+        }
+      } catch {
+        g2.__SP_PEER_HOST = null;
+      }
+    };
+    peer.on("connection", (conn) => {
+      if (g2.__SP_CHAT && g2.__SP_CHAT.peers) g2.__SP_CHAT.peers.set(String(conn.peer || Math.random()), conn);
+      try {
+        const s3 = adaptPeerServerConn(conn);
+        g2.__SP_NETWORK.handleConnection(s3, fakeReq());
+      } catch (e3) {
+        console.error("[sp-peer] handleConnection", e3);
+      }
+    });
+    peer.on("open", () => {
+      showPeerShare(code);
+    });
+    peer.on("error", (e3) => {
+      console.warn("[sp-peer] host error", e3 && e3.type || e3, "(try", tryNo, ")");
+      cleanup();
+      if (tryNo < 4) {
+        try {
+          setTimeout(() => attempt(tryNo + 1), 1200 * tryNo);
+        } catch {
+        }
+      } else {
+        try {
+          const doc = typeof document !== "undefined" ? document : null;
+          if (doc && doc.body && !g2.__SP_PEER_FAILED_BAR) {
+            g2.__SP_PEER_FAILED_BAR = true;
+            const bar2 = doc.createElement("div");
+            bar2.textContent = "\u8054\u673A\u4FE1\u4EE4\u8FDE\u63A5\u5931\u8D25\uFF08\u65E0\u6CD5\u8BBF\u95EE 0.peerjs.com\uFF09\u3002\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u5237\u65B0\u9875\u9762\u91CD\u8BD5\uFF0C\u6216\u6539\u7528\u5355\u673A\u6A21\u5F0F\u3002";
+            Object.assign(bar2.style, {
+              position: "fixed",
+              left: "8px",
+              right: "8px",
+              bottom: "72px",
+              zIndex: 99991,
+              background: "rgba(60, 18, 16, .95)",
+              color: "#f5b8b2",
+              border: "1px solid #8a3a32",
+              padding: "10px 12px",
+              fontSize: "13px",
+              lineHeight: "1.5",
+              borderRadius: "10px",
+              fontFamily: "sans-serif",
+              wordBreak: "break-all"
+            });
+            doc.body.appendChild(bar2);
+          }
+        } catch {
+        }
+      }
+    });
+  };
+  attempt(1);
 }
 function showPeerShare(code) {
   try {
@@ -105166,12 +105251,17 @@ if (SP_JOIN) {
     const orig = Net.prototype._onOpen;
     Net.prototype._onOpen = function(...a3) {
       const r5 = orig ? orig.apply(this, a3) : void 0;
-      setTimeout(() => {
+      let jtries = 0;
+      const join2 = () => {
+        if (this.status !== "online" || g2.__SP_JOINED) return;
         try {
           this.request("room.join", { code: SP_JOIN });
         } catch {
         }
-      }, 400);
+        jtries += 1;
+        if (jtries < 5) setTimeout(join2, 1400 * jtries);
+      };
+      setTimeout(join2, 400);
       return r5;
     };
   }
