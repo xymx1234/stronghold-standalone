@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>联机公告 · 同盟模拟</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121a22; --panel2:#0f161d; --line:#22303c;
+    --tx:#dce6ef; --tx2:#8fa3b5; --tx3:#5f7386;
+    --amber:#e0b46a; --mint:#7bd2a8; --red:#e5736b; --blue:#6aa9e0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--tx);font-family:-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;line-height:1.7;min-height:100vh}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 60px}
+  /* 头图 */
+  .hero{border:1px solid var(--line);border-radius:14px;padding:26px 22px;background:linear-gradient(160deg,#16202a 0%,#0e151c 100%);position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset:0;background:radial-gradient(600px 200px at 80% -20%,rgba(224,180,106,.12),transparent 60%)}
+  .hero .tag{display:inline-block;font-size:11px;letter-spacing:2px;color:var(--amber);border:1px solid rgba(224,180,106,.4);border-radius:20px;padding:2px 12px;margin-bottom:12px;background:rgba(224,180,106,.08)}
+  .hero h1{font-size:26px;font-weight:700;letter-spacing:1px}
+  .hero p{margin-top:8px;color:var(--tx2);font-size:14px}
+  .hero .ver{margin-top:14px;display:inline-block;font-size:12px;color:var(--mint);border:1px solid rgba(123,210,168,.35);border-radius:6px;padding:2px 10px;background:rgba(123,210,168,.07)}
+  /* 区块 */
+  section{margin-top:26px}
+  .sec-h{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .sec-h .no{flex:none;width:26px;height:26px;border-radius:8px;background:var(--amber);color:#0b0f14;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+  .sec-h h2{font-size:18px;font-weight:700;letter-spacing:1px}
+  .sec-h .en{margin-left:auto;font-size:11px;letter-spacing:2px;color:var(--tx3)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+  .card h3{font-size:15px;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .card h3 .step{flex:none;width:20px;height:20px;border-radius:50%;background:rgba(224,180,106,.15);border:1px solid rgba(224,180,106,.5);color:var(--amber);font-size:12px;display:flex;align-items:center;justify-content:center}
+  .card p,.card li{font-size:14px;color:var(--tx);margin:6px 0}
+  .card ul{padding-left:18px}
+  .card li{margin:5px 0}
+  .card .sub{color:var(--tx2);font-size:13px}
+  .code{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 8px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:var(--blue);word-break:break-all}
+  .warn{border-left:3px solid var(--amber);background:rgba(224,180,106,.06);padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--tx2);margin-top:10px}
+  .ok{border-left:3px solid var(--mint);background:rgba(123,210,168,.06);padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--tx2);margin-top:10px}
+  .red{border-left:3px solid var(--red);background:rgba(229,115,107,.06);padding:10px 12px;border-radius:0 8px 8px 0;font-size:13px;color:var(--tx2);margin-top:10px}
+  strong{color:var(--tx);font-weight:600}
+  /* 流程时间线 */
+  .flow{position:relative;padding-left:26px}
+  .flow::before{content:"";position:absolute;left:9px;top:8px;bottom:8px;width:2px;background:var(--line)}
+  .flow .node{position:relative;margin-bottom:14px}
+  .flow .node::before{content:"";position:absolute;left:-23px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--mint);box-shadow:0 0 0 3px rgba(123,210,168,.15)}
+  .flow .node b{color:var(--mint);font-weight:600;font-size:14px}
+  .flow .node p{font-size:13.5px;color:var(--tx);margin-top:2px}
+  .flow .node .code{font-size:12.5px}
+  /* FAQ */
+  details{border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-bottom:10px;overflow:hidden}
+  summary{padding:12px 16px;cursor:pointer;font-size:14px;font-weight:600;list-style:none;display:flex;align-items:center;gap:8px;color:var(--tx)}
+  summary::before{content:"＋";color:var(--amber);font-weight:700}
+  details[open] summary::before{content:"－"}
+  details .ans{padding:0 16px 14px;font-size:13.5px;color:var(--tx2);border-top:1px solid var(--line)}
+  details .ans p{margin:8px 0}
+  .foot{text-align:center;color:var(--tx3);font-size:12px;margin-top:36px;letter-spacing:1px}
+  .back{display:inline-block;margin-top:18px;color:var(--mint);font-size:13px;text-decoration:none;border:1px solid rgba(123,210,168,.4);border-radius:8px;padding:6px 16px;background:rgba(123,210,168,.07)}
+  @media(max-width:600px){ .hero h1{font-size:22px} .wrap{padding:14px 12px 48px} .card{padding:14px 14px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <span class="tag">ANNOUNCEMENT</span>
+    <h1>联机公告 · 同盟模拟</h1>
+    <p>手机也能当房主 —— 不花一分钱、不用买服务器,热点 / 局域网 / 异地皆可组队。</p>
+    <span class="ver">v70 联机已恢复 · 开房即出现「联机已开启」</span>
+  </div>
+
+  <section>
+    <div class="sec-h"><span class="no">1</span><h2>房主怎么开房</h2><span class="en">HOST</span></div>
+    <div class="flow">
+      <div class="node"><b>① 准备</b><p>房主设备(手机 / 电脑均可)打开热点或连上网络。</p></div>
+      <div class="node"><b>② 进入游戏</b><p>浏览器打开: <span class="code">xymx1234.github.io/stronghold-standalone/?sp=host</span></p><p class="sub">手机长按 / 电脑复制该网址即可。</p></div>
+      <div class="node"><b>③ 创建同盟</b><p>输入代号 → 开始 → 选择「同盟模拟」→ 点击「创建同盟」。</p></div>
+      <div class="node"><b>④ 确认开房成功</b><p>底部出现<span style="color:var(--mint)">绿色提示「联机已开启 · 分享给队友」</span>,并显示 4 位同盟密钥。</p></div>
+      <div class="node"><b>⑤ 分享给队友</b><p>把绿色提示里的<strong>完整链接</strong>(或 4 位密钥)发给队友。</p></div>
+    </div>
+    <div class="ok">绿条出现 = 联机注册成功。没有绿条时,请刷新页面重试开房。</div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="no">2</span><h2>队友怎么加入</h2><span class="en">JOIN</span></div>
+    <div class="flow">
+      <div class="node"><b>① 最省事</b><p>直接点开房主发来的<strong>完整邀请链接</strong>,自动进入同盟模拟。</p></div>
+      <div class="node"><b>② 或手动加入</b><p>打开游戏首页 → 选择「同盟模拟」→ 在「加入同盟」输入 4 位密钥 → 点「加入同盟」。</p></div>
+      <div class="node"><b>③ 坐席说明</b><p>同盟共 1–4 席;空位可由房主添加 AI 队友补位,也可等真人队友加入。</p></div>
+    </div>
+    <div class="warn">手机、电脑、不同品牌浏览器之间<strong>可以混合组队</strong>,没有平台限制。</div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="no">3</span><h2>注意事项</h2><span class="en">NOTES</span></div>
+    <div class="card">
+      <ul>
+        <li><strong>房主页面不能关、不能刷新</strong> —— 房主一关页面,同盟当场解散。</li>
+        <li><strong>推荐同一热点 / 局域网</strong> 组队,延迟最低;异地联机同样可用(走公共中继,延迟略高)。</li>
+        <li>密钥区分大小写,<strong>4 位大写字母/数字</strong>,例如 <span class="code">BDPN</span>。</li>
+        <li>加入后右上角会显示连接状态;进入对局后即可共同作战、共享干员池。</li>
+        <li>此联机方案<strong>不影响单机玩法</strong> —— 不开房时游戏照常本地运行,不消耗额外流量。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><span class="no">4</span><h2>常见问题</h2><span class="en">FAQ</span></div>
+    <details><summary>队友提示「未找到同盟」?</summary><div class="ans"><p>常见原因:① 房主还没开房成功(没有绿条);② 密钥输错;③ 房主页面已刷新/关闭。让房主重新开房、重新发链接即可。</p></div></details>
+    <details><summary>加入后一直显示 CONNECTING?</summary><div class="ans"><p>正在建立直连,通常几秒内进房。若超过 30 秒未进房,刷新页面重试一次;仍不行则让房主重新开房。</p></div></details>
+    <details><summary>需要买服务器吗?</summary><div class="ans"><p>不需要。本作联机走浏览器内置直连技术,免费公共信令负责牵线,组队数据在设备间直传。</p></div></details>
+    <details><summary>打完后还要等计时?</summary><div class="ans"><p>单机模式下消灭当前波次全部敌人即可提前进入结算;联机模式下双方都打完即可提前结束等待,不用干等倒计时。</p></div></details>
+  </section>
+
+  <div class="foot">STRONGHOLD PROTOCOL · 同人塔防 · 非商用自娱<br>有疑问或发现 BUG,直接告诉作者修复</div>
+  <div style="text-align:center"><a class="back" href="index.html">← 返回游戏</a></div>
+</div>
+</body>
+</html>
